@@ -36,6 +36,9 @@ ChucK * chuck = NULL;
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
+float hardClip(float x);
+float softClip(float x);
+
 CpuLoadMeter cpuLoad;
 
 // chuck code
@@ -118,7 +121,7 @@ int main(void) {
   // initialize ChucK
   chuck = new ChucK();
 
-  chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, (t_CKINT) patch.AudioSampleRate());
+  chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, (t_CKINT) hw.AudioSampleRate());
   chuck->setParam(CHUCK_PARAM_INPUT_CHANNELS, 2);
   chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, 2);
   chuck->setParam(CHUCK_PARAM_VM_HALT, FALSE);
@@ -126,7 +129,7 @@ int main(void) {
   chuck->setParam(CHUCK_PARAM_CHUGIN_ENABLE, FALSE);
 
   // allocate audio buffers, after parameters are set
-  size_t bufferSize = patch.AudioBlockSize();
+  size_t bufferSize = hw.AudioBlockSize();
   inputBuffer = new SAMPLE[bufferSize * 2]();
   outputBuffer = new SAMPLE[bufferSize * 2]();
 

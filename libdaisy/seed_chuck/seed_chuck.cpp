@@ -54,6 +54,9 @@ ChucK * chuck = NULL;
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
+float hardClip(float x);
+float softClip(float x);
+
 CpuLoadMeter cpuLoad;
 
 // chuck code
