@@ -6,13 +6,13 @@ APP_TYPE = BOOT_QSPI
 
 # Library Locations
 LIBDAISY_DIR ?= ../libDaisy
-CHUCK_DIR ?= chuck
+CHUCK_DIR ?= ../chuck
 
 # Sources
-CHUCK_CPP_SOURCES = $(wildcard $(CHUCK_DIR)/*.cpp)
+CHUCK_CPP_SOURCES = $(filter-out $(CHUCK_DIR)/sdram_heap.cpp,$(wildcard $(CHUCK_DIR)/*.cpp))
 CHUCK_C_SOURCES = $(wildcard $(CHUCK_DIR)/*.c)
 
-CPP_SOURCES = patch_init_chuck.cpp sdram_heap.cpp $(CHUCK_CPP_SOURCES)
+CPP_SOURCES = patch_init_chuck.cpp $(CHUCK_DIR)/sdram_heap.cpp $(CHUCK_CPP_SOURCES)
 C_SOURCES = $(CHUCK_C_SOURCES)
 
 # ChucK core, embedded configuration

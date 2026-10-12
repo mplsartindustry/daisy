@@ -29,7 +29,7 @@
 //
 // Heap for malloc/new, replacing _sbrk from libnosys.
 //
-// SDRAM is not usable until DaisyPatchSM::Init() runs, but static constructors
+// SDRAM is not usable until hardware Init() runs (e.g. DaisySeed, DaisyPatchSM), but static constructors
 // may allocate before main(). Allocations are served from the remainder of
 // internal AXI SRAM until EnableSdramHeap() is called, and from SDRAM after.
 //
