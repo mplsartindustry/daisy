@@ -34,3 +34,6 @@ ChucK is much larger than the usual Daisy sketch:
 * `ChucK::init()` allocates a few MB of heap (about 4.7 MB measured on 64-bit
   macOS). That is more than the 512 KB of AXI SRAM, so the heap has to be in
   SDRAM.
+
+[`../../libdaisy/patch_init_chuck`](../../libdaisy/patch_init_chuck) builds the same
+ChucK sources with libDaisy, which handles both.
