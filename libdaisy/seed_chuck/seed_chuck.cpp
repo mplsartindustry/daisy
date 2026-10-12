@@ -49,16 +49,14 @@ DaisySeed hw;
 Switch sw1;
 Switch fs1;
 GPIO led1;
-CpuLoadMeter cpuLoad;
 
-// ChucK instance
 ChucK * chuck = NULL;
-
-// interleaved audio buffers, as expected by ChucK::run()
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
-// ChucK program, fs1 broadcasts global event `trigger`
+CpuLoadMeter cpuLoad;
+
+// chuck code
 const char * CHUCK_CODE = R"(
 global Event trigger;
 
@@ -73,26 +71,6 @@ while (true) {
   e.keyOn();
 }
 )";
-
-float hardClip(float x) {
-  if (x < -1.0f) {
-    return -1.0f;
-  }
-  else if (x > 1.0f) {
-    return 1.0f;
-  }
-  return x;
-}
-
-float softClip(float x) {
-  if (x < -3.0f) {
-    return -1.0f;
-  }
-  else if (x > 3.0f) {
-    return 1.0f;
-  }
-  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
-}
 
 void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size) {
 
@@ -135,7 +113,7 @@ void chuckPrint(const char * message) {
 
 int main(void) {
 
-  // initialize hardware, including SDRAM; boost CPU to 480 MHz
+  // initialize hardware, including SDRAM
   hw.Init(true);
   hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
 
@@ -189,4 +167,24 @@ int main(void) {
                             FLT_VAR3(cpuLoad.GetAvgCpuLoad()),
                             FLT_VAR3(cpuLoad.GetMaxCpuLoad()));
   }
+}
+
+float hardClip(float x) {
+  if (x < -1.0f) {
+    return -1.0f;
+  }
+  else if (x > 1.0f) {
+    return 1.0f;
+  }
+  return x;
+}
+
+float softClip(float x) {
+  if (x < -3.0f) {
+    return -1.0f;
+  }
+  else if (x > 3.0f) {
+    return 1.0f;
+  }
+  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
 }
