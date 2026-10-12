@@ -17,9 +17,12 @@ The ChucK core sources are in [`../chuck`](../chuck) and compiled with `-D__CHUC
 
 ## Build
 
-Requires the [Daisy toolchain](https://daisy.audio/tutorials/cpp-dev-env/) (`arm-none-eabi-gcc`, `dfu-util`).
+Requires the [Daisy toolchain](https://docs.daisy.audio/tutorials/cpp-dev-env/#1-install-the-toolchain) (`arm-none-eabi-gcc`, `dfu-util`).
 
 ```bash
+# on osx via homebrew
+brew install make gcc-arm-embedded dfu-util open-ocd
+
 # once: clone and build libDaisy (ignored by git)
 git clone --recurse-submodules https://github.com/electro-smith/libDaisy ../libDaisy
 make -C ../libDaisy
