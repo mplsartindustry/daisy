@@ -28,19 +28,17 @@
 using namespace daisy;
 using namespace daisy::patch_sm;
 
-DaisyPatchSM patch;
+DaisyPatchSM hw;
 Switch b7;
 Switch b8;
-CpuLoadMeter cpuLoad;
 
-// ChucK instance
 ChucK * chuck = NULL;
-
-// interleaved audio buffers, as expected by ChucK::run()
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
-// ChucK program, b7 broadcasts global event `trigger`
+CpuLoadMeter cpuLoad;
+
+// chuck code
 const char * CHUCK_CODE = R"(
 global Event trigger;
 
@@ -56,31 +54,11 @@ while (true) {
 }
 )";
 
-float hardClip(float x) {
-  if (x < -1.0f) {
-    return -1.0f;
-  }
-  else if (x > 1.0f) {
-    return 1.0f;
-  }
-  return x;
-}
-
-float softClip(float x) {
-  if (x < -3.0f) {
-    return -1.0f;
-  }
-  else if (x > 3.0f) {
-    return 1.0f;
-  }
-  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
-}
-
 void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size) {
 
   cpuLoad.OnBlockStart();
 
-  patch.ProcessAllControls();
+  hw.ProcessAllControls();
 
   b7.Debounce();
   b8.Debounce();
@@ -93,7 +71,7 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   }
 
   // cv_out_2, C1 led on front panel
-  patch.WriteCvOut(CV_OUT_2, hard ? 5.0f : 0.0f);
+  hw.WriteCvOut(CV_OUT_2, hard ? 5.0f : 0.0f);
 
   // interleave input buffers
   for (size_t i = 0; i < size; i++) {
@@ -120,8 +98,8 @@ void chuckPrint(const char * message) {
 int main(void) {
 
   // initialize hardware, including SDRAM
-  patch.Init();
-  patch.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
+  hw.Init();
+  hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
 
   // ChucK allocates several MB, more than internal SRAM
   EnableSdramHeap();
@@ -160,8 +138,8 @@ int main(void) {
   }
   DaisyPatchSM::PrintLine("ChucK heap: %u bytes", (unsigned) SdramHeapUsed());
 
-  cpuLoad.Init(patch.AudioSampleRate(), patch.AudioBlockSize());
-  patch.StartAudio(audioCallback);
+  cpuLoad.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
+  hw.StartAudio(audioCallback);
 
   while (1) {
     // report audio callback CPU load once per second
@@ -170,4 +148,24 @@ int main(void) {
                             FLT_VAR3(cpuLoad.GetAvgCpuLoad()),
                             FLT_VAR3(cpuLoad.GetMaxCpuLoad()));
   }
+}
+
+float hardClip(float x) {
+  if (x < -1.0f) {
+    return -1.0f;
+  }
+  else if (x > 1.0f) {
+    return 1.0f;
+  }
+  return x;
+}
+
+float softClip(float x) {
+  if (x < -3.0f) {
+    return -1.0f;
+  }
+  else if (x > 3.0f) {
+    return 1.0f;
+  }
+  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
 }

@@ -2,16 +2,18 @@
 
 [ChucK](https://chuck.stanford.edu) core running on a Daisy Patch SM (patch.Init()), built with libDaisy.
 
-The ChucK core sources are in [`../chuck`](../chuck), shared with
-[`../seed_chuck`](../seed_chuck), and compiled with `-D__CHUCK_EMBEDDED__`.
+The ChucK core sources are in [`../chuck`](../chuck) and compiled with `-D__CHUCK_EMBEDDED__`.
+
 
 ## Memory
 
 * ChucK is ~1.4 MB, so the program runs from QSPI flash via the Daisy bootloader
   (`APP_TYPE = BOOT_QSPI`).
-* `ChucK::init()` allocates several MB, so [`../chuck/sdram_heap.cpp`](../chuck/sdram_heap.cpp) replaces `_sbrk`. Heap
-  allocations come from internal SRAM until `EnableSdramHeap()` is called after
+
+* `ChucK::init()` allocates several MB, so [`../chuck/sdram_heap.cpp`](../chuck/sdram_heap.cpp) replaces
+  `_sbrk`. Heap allocations come from internal SRAM until `EnableSdramHeap()` is called after
   `patch.Init()`, then from a 56 MB SDRAM region.
+
 
 ## Build
 
@@ -27,6 +29,7 @@ make
 
 Override the locations with `make LIBDAISY_DIR=... CHUCK_DIR=...`, and the toolchain with `GCC_PATH=...`.
 
+
 ## Flash
 
 Put the Patch SM in DFU mode (hold BOOT, press RESET), then:
@@ -38,6 +41,7 @@ make program-boot
 # within the bootloader's 2 s grace period after reset (LED pulsing)
 make program-dfu
 ```
+
 
 ## Usage
 
