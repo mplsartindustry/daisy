@@ -6,7 +6,7 @@ APP_TYPE = BOOT_QSPI
 
 # Library Locations
 LIBDAISY_DIR ?= ../libDaisy
-CHUCK_DIR ?= ../../arduino/patch_init_chuck
+CHUCK_DIR ?= chuck
 
 # Sources
 CHUCK_CPP_SOURCES = $(wildcard $(CHUCK_DIR)/*.cpp)

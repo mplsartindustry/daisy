@@ -2,7 +2,7 @@
 
 [ChucK](https://chuck.stanford.edu) core running on a Daisy Patch SM (patch.Init()), built with libDaisy.
 
-The ChucK core sources are shared with the Arduino sketch in
+The ChucK core sources in [`chuck`](chuck) are copied from the Arduino sketch in
 [`../../arduino/patch_init_chuck`](../../arduino/patch_init_chuck) (see the README there for
 what was changed from upstream) and compiled with `-D__CHUCK_EMBEDDED__`.
 
