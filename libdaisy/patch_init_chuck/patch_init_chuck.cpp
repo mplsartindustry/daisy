@@ -144,6 +144,7 @@ int main(void) {
   cpuLoad.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
   hw.StartAudio(audioCallback);
 
+  // todo: does this even run, since after StartAudio?
   while (1) {
     // report audio callback CPU load once per second
     System::Delay(1000);
