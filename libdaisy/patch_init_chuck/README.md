@@ -48,15 +48,8 @@ arm-none-eabi-objcopy -O binary -S build/patch_init_chuck.elf build/patch_init_c
 Put the Patch SM in DFU mode (hold BOOT, press RESET), then:
 
 ```bash
-# once: install the Daisy bootloader to internal flash
-make program-boot
-
-# within the bootloader's 2 s grace period after reset (LED pulsing)
-make program-dfu
-
-
 #
-# todo this did not work, or maybe it did and only errored at the end
+# once: install the Daisy bootloader to internal flash
 #
 
 $ make program-boot
@@ -90,9 +83,12 @@ Submitting leave request...
 dfu-util: Error during download get_status
 make: *** [program-boot] Error 74
 
+#
+# error at the end most likely ignorable!
+
 
 #
-# todo this worked
+# then: within the bootloader's 2 s grace period after reset (LED pulsing)
 #
 
 $ make program-dfu
@@ -124,11 +120,48 @@ Download done.
 File downloaded successfully
 Submitting leave request...
 Transitioning to dfuMANIFEST state
-
-#
-# todo: could not find USB serial though, or perhaps call does not work?
-#
 ```
+
+
+### USB serial
+
+The Daisy shows up as a USB serial device, but a serial port isn't a regular file, so tail doesn't work well on it. Open it with a terminal program instead.
+
+1. Find the port (after the app starts, once the DFU device disappears):
+
+   ```bash
+   ls /dev/cu.usbmodem*
+   ```
+
+   macOS creates two entries for each port, `/dev/tty.usbmodem…` and `/dev/cu.usbmodem…`. Use `cu.`, because `tty.` can hang when you open it.
+
+2. Open the port:
+
+   ```bash
+   screen /dev/cu.usbmodem<NNNN> 115200
+   ```
+
+   The baud rate doesn't matter for USB serial, so any value works. To quit `screen`, press `Ctrl-A`, then `K`, then `y`. Other options:
+
+   * `cat /dev/cu.usbmodem<NNNN>` is the closest to `tail -f`. Quit with `Ctrl-C`.
+   * `arduino-cli monitor -p /dev/cu.usbmodem<NNNN>` works if you have arduino-cli installed.
+   * The Arduino IDE's Serial Monitor also works.
+
+3. If no `usbmodem` appears, check whether the board shows up at all:
+
+   ```bash
+   system_profiler SPUSBDataType | grep -i -A6 daisy
+   # or
+   ioreg -p IOUSB -l | grep -i -B2 -A10 daisy
+   ```
+
+   What you see narrows things down:
+
+   * Only the DFU device appears (`0483:df11`, "DFU in FS Mode"): you're still in the bootloader, and the app hasn't started.
+   * Nothing Daisy-related appears: the app is running but USB never connected. The audio callback may be using all the CPU so USB never starts.
+   * A Daisy/STM device appears, but there's no `cu.usbmodem` entry: the USB serial part isn't working.
+
+Remember that with `StartLog(false)`, anything printed before you connect is lost. If the main loop is running, you should still see `CPU load avg: … max: …` once per second.
 
 
 ## Usage
