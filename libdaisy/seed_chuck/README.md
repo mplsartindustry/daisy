@@ -49,5 +49,7 @@ make program-dfu
 ## Usage
 
 * FS1 (D24) broadcasts the ChucK global event `trigger`, which plays a random note
+* POT1 (A1/D16), POT2 (A2/D17), and POT3 (A3/D18) set the envelope attack, decay, and release, 1 to 2000 ms
 * SW1 (D10) switches the output between hard and soft clip; LED1 (D22) shows hard clip
+* LED2 (D23, DAC OUT 1) brightness shows the note frequency, dim for low notes and bright for high notes
 * USB serial prints ChucK console output, SDRAM heap used after compiling, and audio callback CPU load once per second
