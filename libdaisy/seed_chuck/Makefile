@@ -7,13 +7,17 @@ APP_TYPE = BOOT_QSPI
 # Library Locations
 LIBDAISY_DIR ?= ../libDaisy
 CHUCK_DIR ?= ../chuck
+MPLSARTINDUSTRY_DIR ?= ../mplsartindustry
 
 # Sources
 CHUCK_CPP_SOURCES = $(filter-out $(CHUCK_DIR)/sdram_heap.cpp,$(wildcard $(CHUCK_DIR)/*.cpp))
 CHUCK_C_SOURCES = $(wildcard $(CHUCK_DIR)/*.c)
 
-CPP_SOURCES = seed_chuck.cpp $(CHUCK_DIR)/sdram_heap.cpp $(CHUCK_CPP_SOURCES)
+CPP_SOURCES = seed_chuck.cpp $(MPLSARTINDUSTRY_DIR)/mplsartindustry_seed.cpp $(CHUCK_DIR)/sdram_heap.cpp $(CHUCK_CPP_SOURCES)
 C_SOURCES = $(CHUCK_C_SOURCES)
+
+# MA&I pcb board
+C_INCLUDES += -I$(MPLSARTINDUSTRY_DIR)
 
 # ChucK core, embedded configuration
 C_INCLUDES += -I$(CHUCK_DIR)
