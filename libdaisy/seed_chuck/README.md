@@ -4,6 +4,8 @@
 
 The ChucK core sources are in [`../chuck`](../chuck) and compiled with `-D__CHUCK_EMBEDDED__`.
 
+The MA&I pcb board controls and LEDs are wrapped by `MplsArtIndustrySeed` in [`../mplsartindustry`](../mplsartindustry).
+
 
 ## Memory
 
@@ -30,7 +32,7 @@ make -C ../libDaisy
 make
 ```
 
-Override the locations with `make LIBDAISY_DIR=... CHUCK_DIR=...`, and the toolchain with `GCC_PATH=...`.
+Override the locations with `make LIBDAISY_DIR=... CHUCK_DIR=... MPLSARTINDUSTRY_DIR=...`, and the toolchain with `GCC_PATH=...`.
 
 
 ## Flash

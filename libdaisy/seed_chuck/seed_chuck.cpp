@@ -19,48 +19,22 @@
     along with mplsartindustry/daisy.  If not, see <http://www.gnu.org/licenses/>.
 
 */
-#include "daisy_seed.h"
+#include "mplsartindustry_seed.h"
 #include "util/CpuLoadMeter.h"
 #include "chuck.h"
 #include "chuck_globals.h"
 #include "sdram_heap.h"
 
 using namespace daisy;
+using namespace mplsartindustry;
 
-/*
-
-  Daisy Seed pin mapping with MA&I pcb board
-
-  11  D10     --> SW1
-  16  in[0]   --> AUDIO_IN_L
-  17  in[1]   --> AUDIO_IN_R
-  18  out[0]  --> AUDIO_OUT_L
-  19  out[1]  --> AUDIO_OUT_R
-  23  A1/D16  --> POT1/J7 pin 2
-  24  A2/D17  --> POT2/J8 pin 2
-  25  A3/D18  --> POT3/J9 pin 2
-  29  A7/D22/DAC OUT 2 --> LEDs pin 1
-  30  A8/D23/DAC OUT 1 --> LEDs pin 3
-  31  A9/D24  --> FS1
-
- */
-
-DaisySeed hw;
-Switch sw1;
-Switch fs1;
-GPIO led1;
-AnalogControl pot1;
-AnalogControl pot2;
-AnalogControl pot3;
+MplsArtIndustrySeed hw;
 
 ChucK * chuck = NULL;
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 t_CKFLOAT * freq = NULL;
 
-float hardClip(float x);
-float softClip(float x);
-float envelopeMs(float x);
 float ledBrightness(float freq);
 
 CpuLoadMeter cpuLoad;
@@ -91,26 +65,21 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
   cpuLoad.OnBlockStart();
 
-  sw1.Debounce();
-  fs1.Debounce();
+  hw.ProcessAllControls();
 
-  pot1.Process();
-  pot2.Process();
-  pot3.Process();
-
-  bool rising = fs1.RisingEdge();
-  bool hard = sw1.Pressed();
+  bool rising = hw.fs1.RisingEdge();
+  bool hard = hw.sw1.On();
 
   if (rising) {
     // set envelope before trigger, ChucK handles requests in order
-    chuck->globals()->setGlobalFloat("attack", envelopeMs(pot1.Value()));
-    chuck->globals()->setGlobalFloat("decay", envelopeMs(pot2.Value()));
-    chuck->globals()->setGlobalFloat("release", envelopeMs(pot3.Value()));
+    chuck->globals()->setGlobalFloat("attack", hw.pot1.Value());
+    chuck->globals()->setGlobalFloat("decay", hw.pot2.Value());
+    chuck->globals()->setGlobalFloat("release", hw.pot3.Value());
     chuck->globals()->broadcastGlobalEvent("trigger");
   }
 
   // led1 shows hard clip
-  led1.Write(hard);
+  hw.led1.Set(hard);
 
   // interleave input buffers
   for (size_t i = 0; i < size; i++) {
@@ -122,12 +91,12 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   chuck->run(inputBuffer, outputBuffer, size);
 
   // led2 brightness shows note frequency
-  hw.dac.WriteValue(DacHandle::Channel::ONE, (uint16_t) (ledBrightness(*freq) * 4095.0f));
+  hw.led2.Set(ledBrightness(*freq));
 
   // deinterleave and clip output buffers
   for (size_t i = 0; i < size; i++) {
-    out[0][i] = hard ? hardClip(outputBuffer[2 * i]) : softClip(outputBuffer[2 * i]);
-    out[1][i] = hard ? hardClip(outputBuffer[2 * i + 1]) : softClip(outputBuffer[2 * i + 1]);
+    out[0][i] = hard ? hw.HardClip(outputBuffer[2 * i]) : hw.SoftClip(outputBuffer[2 * i]);
+    out[1][i] = hard ? hw.HardClip(outputBuffer[2 * i + 1]) : hw.SoftClip(outputBuffer[2 * i + 1]);
   }
 
   cpuLoad.OnBlockEnd();
@@ -139,43 +108,21 @@ void chuckPrint(const char * message) {
 
 int main(void) {
 
-  // initialize hardware, including SDRAM
-  hw.Init(true);
+  // initialize hardware, including SDRAM, controls, and LEDs
+  hw.Init();
   hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
 
   // ChucK allocates several MB, more than internal SRAM
   EnableSdramHeap();
 
-  // sw1, toggle switch, hard clip/soft clip
-  sw1.Init(seed::D10);
+  // pot1, pot2, pot3, envelope attack, decay, release, 1 to 2000 ms, finer at the low end
+  hw.pot1.SetRange(1.0f, 2000.0f, Parameter::EXPONENTIAL);
+  hw.pot2.SetRange(1.0f, 2000.0f, Parameter::EXPONENTIAL);
+  hw.pot3.SetRange(1.0f, 2000.0f, Parameter::EXPONENTIAL);
 
+  // sw1, toggle switch, hard clip/soft clip, shown on led1
   // fs1, footswitch, trigger
-  fs1.Init(seed::D24);
-
-  // led1, hard clip
-  led1.Init(seed::D22, GPIO::Mode::OUTPUT);
-
-  // pot1, pot2, pot3, potentiometers, envelope attack, decay, release
-  AdcChannelConfig adcConfig[3];
-  adcConfig[0].InitSingle(seed::A1);
-  adcConfig[1].InitSingle(seed::A2);
-  adcConfig[2].InitSingle(seed::A3);
-  hw.adc.Init(adcConfig, 3);
-
-  // controls are processed once per audio callback
-  pot1.Init(hw.adc.GetPtr(0), hw.AudioCallbackRate());
-  pot2.Init(hw.adc.GetPtr(1), hw.AudioCallbackRate());
-  pot3.Init(hw.adc.GetPtr(2), hw.AudioCallbackRate());
-  hw.adc.Start();
-
-  // led2, DAC OUT 1, note frequency
-  DacHandle::Config dacConfig;
-  dacConfig.chn = DacHandle::Channel::ONE;
-  dacConfig.mode = DacHandle::Mode::POLLING;
-  dacConfig.bitdepth = DacHandle::BitDepth::BITS_12;
-  dacConfig.buff_state = DacHandle::BufferState::ENABLED;
-  hw.dac.Init(dacConfig);
-  hw.dac.WriteValue(DacHandle::Channel::ONE, 0);
+  // led2, note frequency
 
   // ChucK console output over USB serial
   DaisySeed::StartLog(false);
@@ -221,38 +168,12 @@ int main(void) {
   }
 }
 
-float hardClip(float x) {
-  if (x < -1.0f) {
-    return -1.0f;
-  }
-  else if (x > 1.0f) {
-    return 1.0f;
-  }
-  return x;
-}
-
-float softClip(float x) {
-  if (x < -3.0f) {
-    return -1.0f;
-  }
-  else if (x > 3.0f) {
-    return 1.0f;
-  }
-  return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
-}
-
-// map pot value 0.0 to 1.0 to envelope time 1 to 2000 ms, finer at the low end
-float envelopeMs(float x) {
-  return 1.0f + 1999.0f * x * x;
-}
-
-// map note frequency, MIDI notes 48 to 72, to LED brightness 0.55 to 1.0; 0.0 before the first note
-// LEDs do not light below ~1.8 V, so the lowest note starts at 0.55 * 3.3 V = 1.8 V
+// map note frequency, MIDI notes 48 to 72, to LED brightness 0.0 to 1.0; 0.0 (off) before the first note
+// AnalogLed treats 0.0 as off, so the lowest note maps just above 0.0 to stay lit
 float ledBrightness(float freq) {
   if (freq <= 0.0f) {
     return 0.0f;
   }
   float note = 69.0f + 12.0f * log2f(freq / 440.0f);
-  float x = fminf(fmaxf((note - 48.0f) / 24.0f, 0.0f), 1.0f);
-  return 0.55f + 0.45f * x;
+  return fminf(fmaxf((note - 48.0f) / 24.0f, 0.001f), 1.0f);
 }
