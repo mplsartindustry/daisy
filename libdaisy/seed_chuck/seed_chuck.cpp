@@ -49,29 +49,41 @@ DaisySeed hw;
 Switch sw1;
 Switch fs1;
 GPIO led1;
+AnalogControl pot1;
+AnalogControl pot2;
+AnalogControl pot3;
 
 ChucK * chuck = NULL;
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
+t_CKFLOAT * freq = NULL;
 
 float hardClip(float x);
 float softClip(float x);
+float envelopeMs(float x);
+float ledBrightness(float freq);
 
 CpuLoadMeter cpuLoad;
 
 // chuck code
 const char * CHUCK_CODE = R"(
 global Event trigger;
+global float attack;
+global float decay;
+global float release;
+global float freq;
 
 SinOsc s => ADSR e => dac;
 220 => s.freq;
 0.5 => s.gain;
-e.set(5::ms, 100::ms, 0.0, 10::ms);
 
 while (true) {
   trigger => now;
-  Math.random2(48, 72) => Std.mtof => s.freq;
+  e.set(attack::ms, decay::ms, 0.5, release::ms);
+  Math.random2(48, 72) => Std.mtof => freq => s.freq;
   e.keyOn();
+  (attack + decay)::ms => now;
+  e.keyOff();
 }
 )";
 
@@ -82,10 +94,18 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   sw1.Debounce();
   fs1.Debounce();
 
+  pot1.Process();
+  pot2.Process();
+  pot3.Process();
+
   bool rising = fs1.RisingEdge();
   bool hard = sw1.Pressed();
 
   if (rising) {
+    // set envelope before trigger, ChucK handles requests in order
+    chuck->globals()->setGlobalFloat("attack", envelopeMs(pot1.Value()));
+    chuck->globals()->setGlobalFloat("decay", envelopeMs(pot2.Value()));
+    chuck->globals()->setGlobalFloat("release", envelopeMs(pot3.Value()));
     chuck->globals()->broadcastGlobalEvent("trigger");
   }
 
@@ -100,6 +120,9 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
   // run ChucK for the next `size` frames
   chuck->run(inputBuffer, outputBuffer, size);
+
+  // led2 brightness shows note frequency
+  hw.dac.WriteValue(DacHandle::Channel::ONE, (uint16_t) (ledBrightness(*freq) * 4095.0f));
 
   // deinterleave and clip output buffers
   for (size_t i = 0; i < size; i++) {
@@ -132,6 +155,28 @@ int main(void) {
   // led1, hard clip
   led1.Init(seed::D22, GPIO::Mode::OUTPUT);
 
+  // pot1, pot2, pot3, potentiometers, envelope attack, decay, release
+  AdcChannelConfig adcConfig[3];
+  adcConfig[0].InitSingle(seed::A1);
+  adcConfig[1].InitSingle(seed::A2);
+  adcConfig[2].InitSingle(seed::A3);
+  hw.adc.Init(adcConfig, 3);
+
+  // controls are processed once per audio callback
+  pot1.Init(hw.adc.GetPtr(0), hw.AudioCallbackRate());
+  pot2.Init(hw.adc.GetPtr(1), hw.AudioCallbackRate());
+  pot3.Init(hw.adc.GetPtr(2), hw.AudioCallbackRate());
+  hw.adc.Start();
+
+  // led2, DAC OUT 1, note frequency
+  DacHandle::Config dacConfig;
+  dacConfig.chn = DacHandle::Channel::ONE;
+  dacConfig.mode = DacHandle::Mode::POLLING;
+  dacConfig.bitdepth = DacHandle::BitDepth::BITS_12;
+  dacConfig.buff_state = DacHandle::BufferState::ENABLED;
+  hw.dac.Init(dacConfig);
+  hw.dac.WriteValue(DacHandle::Channel::ONE, 0);
+
   // ChucK console output over USB serial
   DaisySeed::StartLog(false);
   ChucK::setStdoutCallback(chuckPrint);
@@ -159,6 +204,10 @@ int main(void) {
     DaisySeed::PrintLine("ChucK compile failed");
   }
   DaisySeed::PrintLine("ChucK heap: %u bytes", (unsigned) SdramHeapUsed());
+
+  // read global freq directly from the VM in the audio callback, the same thread as run()
+  chuck->globals()->init_global_float("freq");
+  freq = chuck->globals()->get_ptr_to_global_float("freq");
 
   cpuLoad.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
   hw.StartAudio(audioCallback);
@@ -190,4 +239,20 @@ float softClip(float x) {
     return 1.0f;
   }
   return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
+}
+
+// map pot value 0.0 to 1.0 to envelope time 1 to 2000 ms, finer at the low end
+float envelopeMs(float x) {
+  return 1.0f + 1999.0f * x * x;
+}
+
+// map note frequency, MIDI notes 48 to 72, to LED brightness 0.55 to 1.0; 0.0 before the first note
+// LEDs do not light below ~1.8 V, so the lowest note starts at 0.55 * 3.3 V = 1.8 V
+float ledBrightness(float freq) {
+  if (freq <= 0.0f) {
+    return 0.0f;
+  }
+  float note = 69.0f + 12.0f * log2f(freq / 440.0f);
+  float x = fminf(fmaxf((note - 48.0f) / 24.0f, 0.0f), 1.0f);
+  return 0.55f + 0.45f * x;
 }
