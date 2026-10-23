@@ -33,34 +33,15 @@ ChucK * chuck = NULL;
 SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
-// chuck code
-const char * CHUCK_CODE = R"(
-global float mix;
-global float delay;
-global float feedback;
+// ChucK global floats, read directly from the VM
+t_CKFLOAT * mixPtr = NULL;
+t_CKFLOAT * delayPtr = NULL;
+t_CKFLOAT * feedbackPtr = NULL;
 
-220::ms => dur MAX_DELAY;
-
-adc => Gain _dry => Gain _mix => dac;
-adc => Gain _pre => Delay _delay => Gain _wet => _mix;
-_wet => Gain _feedback => _pre;
-
-{
-  MAX_DELAY => _delay.max;
-
-  0.8 => mix;
-  0.4 => delay;
-  0.6 => feedback;
-}
-
-while (true) {
-  mix => _wet.gain;
-  1.0f - mix => _dry.gain;
-  feedback => _feedback.gain;
-  delay * MAX_DELAY => _delay.delay;
-  10::ms => now;
-}
-)";
+// chuck code, from seed_chuck_delay.ck wrapped in a raw string literal at build time, see Makefile
+const char * CHUCK_CODE =
+#include "seed_chuck_delay_ck.h"
+;
 
 void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size) {
 
@@ -79,13 +60,13 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   hw.led2.Set(mix);
 
   // share parameters with ChucK vm
-  *(chuck->globals()->get_ptr_to_global_float("mix")) = mix;
-  *(chuck->globals()->get_ptr_to_global_float("delay")) = delay;
-  *(chuck->globals()->get_ptr_to_global_float("feedback")) = feedback;
+  *mixPtr = mix;
+  *delayPtr = delay;
+  *feedbackPtr = feedback;
 
   // interleave input buffers
   for (size_t i = 0; i < size; i++) {
-    inputBuffer[2 * i] = in[0][i];
+     inputBuffer[2 * i] = in[0][i];
     inputBuffer[2 * i + 1] = in[1][i];
   }
 
@@ -135,6 +116,16 @@ int main(void) {
   chuck->init();
   chuck->start();
   chuck->compileCode(CHUCK_CODE, "", 1);
+
+  // create the globals now, the VM only creates them on its first run(), after the first audio callback reads them
+  chuck->globals()->init_global_float("mix");
+  chuck->globals()->init_global_float("delay");
+  chuck->globals()->init_global_float("feedback");
+
+  // write globals directly in the audio callback, the same thread as run()
+  mixPtr = chuck->globals()->get_ptr_to_global_float("mix");
+  delayPtr = chuck->globals()->get_ptr_to_global_float("delay");
+  feedbackPtr = chuck->globals()->get_ptr_to_global_float("feedback");
 
   hw.StartAudio(audioCallback);
 }
