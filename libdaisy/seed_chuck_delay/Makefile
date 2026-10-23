@@ -20,6 +20,11 @@ C_SOURCES = $(CHUCK_C_SOURCES)
 # MA&I pcb board
 C_INCLUDES += -I$(MPLSARTINDUSTRY_DIR)
 
+# Note: add ChucK source here
+# ChucK program, wrapped in a C++ raw string literal at build time
+CHUCK_PROGRAM = seed_chuck_delay.ck
+C_INCLUDES += -I$(BUILD_DIR)
+
 # ChucK core, embedded configuration
 C_INCLUDES += -I$(CHUCK_DIR)
 C_DEFS += -D__CHUCK_EMBEDDED__
@@ -32,3 +37,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
 # silence warnings from upstream ChucK sources
 CHUCK_OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(CHUCK_CPP_SOURCES:.cpp=.o) $(CHUCK_C_SOURCES:.c=.o)))
 $(CHUCK_OBJECTS): CFLAGS += -w
+
+# generate $(BUILD_DIR)/seed_chuck_delay_ck.h from the ChucK program
+$(BUILD_DIR)/seed_chuck_delay_ck.h: $(CHUCK_PROGRAM) Makefile | $(BUILD_DIR)
+	{ printf 'R"CHUCK('; cat $<; printf ')CHUCK"\n'; } > $@
+
+$(BUILD_DIR)/seed_chuck_delay.o: $(BUILD_DIR)/seed_chuck_delay_ck.h
