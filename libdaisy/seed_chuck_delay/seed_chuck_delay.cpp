@@ -66,7 +66,7 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
   // interleave input buffers
   for (size_t i = 0; i < size; i++) {
-     inputBuffer[2 * i] = in[0][i];
+    inputBuffer[2 * i] = in[0][i];
     inputBuffer[2 * i + 1] = in[1][i];
   }
 
@@ -93,10 +93,10 @@ int main(void) {
   hw.pot1.SetRange(0.0f, 1.0f, Parameter::LINEAR);
 
   // pot2, delay time
-  hw.pot2.SetRange(0.0f, 1.0f, Parameter::LINEAR);
+  hw.pot2.SetRange(0.20f, 1.0f, Parameter::LINEAR);
 
   // pot3, feedback level
-  hw.pot3.SetRange(0.0f, 1.0f, Parameter::LINEAR);
+  hw.pot3.SetRange(0.0f, 1.2f, Parameter::LINEAR);
 
   // initialize ChucK
   chuck = new ChucK();
