@@ -61,7 +61,8 @@ float Potentiometer::Value() {
 void Potentiometer::InitParameter() {
   // Parameter keeps its own copy of the AnalogControl, with no way to change it, so recreate both
   AnalogControl control;
-  control.Init(adcPtr, updateRate);
+  // todo: current seed pedal has pots wired backward, set flip to true
+  control.Init(adcPtr, updateRate, /* flip */ true, /* invert */ false);
   parameter.Init(control, min, max, curve);
 }
 
