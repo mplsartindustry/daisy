@@ -27,6 +27,8 @@
 using namespace daisy;
 using namespace mplsartindustry;
 
+#define PI 3.141592f
+
 MplsArtIndustrySeed hw;
 
 ChucK * chuck = NULL;
@@ -34,8 +36,10 @@ SAMPLE * inputBuffer = NULL;
 SAMPLE * outputBuffer = NULL;
 
 // ChucK global floats, read directly from the VM
-t_CKFLOAT * mixPtr = NULL;
+t_CKFLOAT * wetPtr = NULL;
+t_CKFLOAT * dryPtr = NULL;
 t_CKFLOAT * delayPtr = NULL;
+t_CKFLOAT * cutoffPtr = NULL;
 t_CKFLOAT * feedbackPtr = NULL;
 
 // chuck code, from seed_chuck_delay.ck wrapped in a raw string literal at build time, see Makefile
@@ -47,10 +51,10 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
   hw.ProcessAllControls();
 
-  bool hard = hw.sw1.On();
+  bool bright = hw.sw1.On();
 
-  // led1 shows hard clip
-  hw.led1.Set(hard);
+  // led1 shows bright (LED is wired inverse)
+  hw.led1.Set(!bright);
 
   float mix = hw.pot1.Value();
   float delay = hw.pot2.Value();
@@ -60,8 +64,10 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
   hw.led2.Set(mix);
 
   // share parameters with ChucK vm
-  *mixPtr = mix;
+  *wetPtr = pow(0.5f - 0.5f * cos(PI * mix), 0.5f) * 1.3f;
+  *dryPtr = pow(0.5f + 0.5f * cos(PI * mix), 0.5f) * 1.3f;
   *delayPtr = delay;
+  *cutoffPtr = bright ? 1600.0f : 800.0f;
   *feedbackPtr = feedback;
 
   // interleave input buffers
@@ -75,8 +81,8 @@ void audioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
   // deinterleave and clip output buffers
   for (size_t i = 0; i < size; i++) {
-    out[0][i] = hard ? hw.HardClip(outputBuffer[2 * i]) : hw.SoftClip(outputBuffer[2 * i]);
-    out[1][i] = hard ? hw.HardClip(outputBuffer[2 * i + 1]) : hw.SoftClip(outputBuffer[2 * i + 1]);
+    out[0][i] = hw.SoftClip(outputBuffer[2 * i]);
+    out[1][i] = hw.SoftClip(outputBuffer[2 * i + 1]);
   }
 }
 
@@ -84,7 +90,8 @@ int main(void) {
 
   // initialize hardware, including SDRAM
   hw.Init();
-  hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
+  hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
+  hw.SetAudioBlockSize(512); // default 48
 
   // ChucK allocates several MB, more than internal SRAM
   EnableSdramHeap();
@@ -96,7 +103,7 @@ int main(void) {
   hw.pot2.SetRange(0.20f, 1.0f, Parameter::LINEAR);
 
   // pot3, feedback level
-  hw.pot3.SetRange(0.0f, 1.2f, Parameter::LINEAR);
+  hw.pot3.SetRange(0.0f, 1.1f, Parameter::LINEAR);
 
   // initialize ChucK
   chuck = new ChucK();
@@ -118,13 +125,17 @@ int main(void) {
   chuck->compileCode(CHUCK_CODE, "", 1);
 
   // create the globals now, the VM only creates them on its first run(), after the first audio callback reads them
-  chuck->globals()->init_global_float("mix");
+  chuck->globals()->init_global_float("wet");
+  chuck->globals()->init_global_float("dry");
   chuck->globals()->init_global_float("delay");
+  chuck->globals()->init_global_float("cutoff");
   chuck->globals()->init_global_float("feedback");
 
   // write globals directly in the audio callback, the same thread as run()
-  mixPtr = chuck->globals()->get_ptr_to_global_float("mix");
+  wetPtr = chuck->globals()->get_ptr_to_global_float("wet");
+  dryPtr = chuck->globals()->get_ptr_to_global_float("dry");
   delayPtr = chuck->globals()->get_ptr_to_global_float("delay");
+  cutoffPtr = chuck->globals()->get_ptr_to_global_float("cutoff");
   feedbackPtr = chuck->globals()->get_ptr_to_global_float("feedback");
 
   hw.StartAudio(audioCallback);
