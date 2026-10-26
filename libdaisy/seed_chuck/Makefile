@@ -25,6 +25,9 @@ C_INCLUDES += -I$(CHUCK_DIR)
 C_DEFS += -D__CHUCK_EMBEDDED__
 CPP_STANDARD = -std=gnu++17
 
+# Note: uncomment to allow printf formatting in ChucK <<< >>> log messages
+#LDFLAGS += -u _printf_float
+
 # Core location, and generic Makefile.
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
 include $(SYSTEM_FILES_DIR)/Makefile
